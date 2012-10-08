@@ -22,7 +22,7 @@
 
         //apply type's specific init()
         this.settings.init.call(this, options);
-        
+
         //store name
         this.name = this.settings.name || this.$element.attr('id');
         if (!this.name) {
@@ -64,7 +64,7 @@
 
         //bind click event on toggle
         this.$toggle.on('click', $.proxy(this.click, this));
-        
+
         //blocking click event when going from inside popover. all other clicks will close it
         $('body').on('click.editable', '.editable-popover', function (e) { e.stopPropagation(); });
 
@@ -72,31 +72,31 @@
         if(!valueSetByText && this.value !== null && this.value !== undefined) {
             switch(this.settings.autotext) {
               case 'always':
-                doAutotext = true; 
+                doAutotext = true;
               break;
-              
+
               case 'never':
-                doAutotext = false; 
+                doAutotext = false;
               break;
-              
+
               case 'auto':
                 if(this.$element.html().length) {
-                   doAutotext = false; 
+                   doAutotext = false;
                 } else {
                    //for SELECT do not use autotext when source is url and autotext = 'auto' (to prevent extra request)
                    if (type === 'select') {
                        this.settings.source = tryParseJson(this.settings.source, true);
                        if (this.settings.source && typeof this.settings.source === 'object') {
-                           doAutotext = true; 
+                           doAutotext = true;
                        }
                    } else {
-                      doAutotext = true; 
-                   }                   
+                      doAutotext = true;
+                   }
                 }
               break;
             }
         }
-        
+
         function finalize() {
             //show emptytext if visible text is empty
             this.handleEmpty();
@@ -108,15 +108,15 @@
             var event = jQuery.Event("render");
             event.isInit = true;
             this.$element.trigger(event, this);
-        }           
-                     
+        }
+
         if(doAutotext) {
            $.when(this.settings.setTextByValue.call(this)).then($.proxy(finalize, this));
         } else {
-           finalize.call(this); 
+           finalize.call(this);
         }
-        
-             
+
+
     };
 
     Editable.prototype = {
@@ -151,10 +151,10 @@
 
             //show popover
             this.$element.popover('show');
-            
+
             //movepopover to correct position. Refers to bug in bootstrap 2.1.x with popover positioning
             this.setPosition();
-            
+
             this.$element.addClass('editable-open');
             this.errorOnRender = false;
 
@@ -169,7 +169,7 @@
 
                 //invoke form into popover content
                 $tip.find('.popover-content p').append(this.$content);
-                
+
                 //set position once more. It is required to pre-move popover when it is close to screen edge.
                 this.setPosition();
 
@@ -203,10 +203,10 @@
                         this.hide();
                     }
                 }, this));
-               
+
                 //hide popover on external click
                 $(document).on('click.editable', $.proxy(this.hide, this));
-                
+
                 //trigger 'shown' event
                 this.$element.trigger('shown', this);
             }, this));
@@ -252,6 +252,9 @@
                 this.value = value;
                 this.settings.setTextByValue.call(this);
 
+                //why the hell this isn't here before?
+                this.data = data;
+
                 //to show that value modified but not saved
                 if (isAjax) {
                     this.markAsSaved();
@@ -288,7 +291,7 @@
                 pk = this.settings.pk;
             }
 
-            send = (this.settings.url !== undefined) && ((this.settings.send === 'always') || (this.settings.send === 'auto' && pk) || (this.settings.send === 'ifpk' /* deprecated */ && pk));
+            send = (this.settings.url !== undefined) && ((this.settings.send === 'always') || (this.settings.send === 'auto' ) || (this.settings.send === 'ifpk' /* deprecated */ && pk));
 
             if (send) { //send to server
                 //hide form, show loading
@@ -299,17 +302,21 @@
 
                 //creating params
                 params = (typeof this.settings.params === 'string') ? {params:this.settings.params} : $.extend({}, this.settings.params);
-                params.name = this.name;
-                params.value = value;
-                if (pk) {
-                    params.pk = pk;
-                }
+
+                // Maybe I'm missing something, but PHP way:
+                // params.name = this.name;
+                // params.value = value;
+                // if (pk) {
+                //     params.pk = pk;
+                // }
+                // Rails way:
+                params[this.settings.name] = value;
 
                 //send ajax to server and return deferred object
                 return $.ajax({
                     url     : (typeof this.settings.url === 'function') ? this.settings.url.call(this) : this.settings.url,
                     data    : params,
-                    type    : 'post',
+                    type    : this.settings.method || "PUT",
                     dataType: 'json'
                 });
             }
@@ -320,12 +327,12 @@
             this.$element.removeClass('editable-open');
             $(document).off('keyup.editable');
             $(document).off('click.editable');
-            
+
             //returning focus on toggle element
             if (this.settings.enablefocus || this.$element.get(0) !== this.$toggle.get(0)) {
                 this.$toggle.focus();
             }
-            
+
             //trigger 'hidden' event
             this.$element.trigger('hidden', this);
         },
@@ -461,34 +468,34 @@
                     }
                 });
                 return result;
-                
+
             case 'submit':  //collects value, validate and submit to server for creating new record
                 var config = arguments[1] || {},
                     $elems = this,
                     errors = this.editable('validate'),
                     values;
-                
+
                 if(typeof config.error !== 'function') {
                     config.error = function() {};
-                } 
+                }
 
                 if($.isEmptyObject(errors)) {
-                    values = this.editable('getValue'); 
+                    values = this.editable('getValue');
                     if(config.data) {
                         $.extend(values, config.data);
                     }
                     $.ajax({
                         type: 'POST',
-                        url: config.url, 
-                        data: values, 
+                        url: config.url,
+                        data: values,
                         dataType: 'json'
                     }).success(function(response) {
                         if(typeof response === 'object' && response.id) {
-                            $elems.editable('option', 'pk', response.id); 
+                            $elems.editable('option', 'pk', response.id);
                             $elems.editable('markAsSaved');
                             if(typeof config.success === 'function') {
                                 config.success.apply($elems, arguments);
-                            } 
+                            }
                         } else { //server-side validation error
                             config.error.apply($elems, arguments);
                         }
@@ -498,7 +505,7 @@
                 } else { //client-side validation error
                     config.error.call($elems, {errors: errors});
                 }
-                
+
                 return this;
         }
 
@@ -508,13 +515,13 @@
             if (!data) {
                 $this.data('editable', (data = new Editable(this, options)));
             }
-            
+
             if(option === 'option') {
                  if(args.length === 2 && typeof args[1] === 'object') {
                      $.extend(data.settings, args[1]); //set options by object
                  } else if(args.length === 3 && typeof args[1] === 'string') {
                     data.settings[args[1]] = args[2]; //set one option
-                 } 
+                 }
             } else if (typeof option === 'string') {
                 data[option]();
             }
@@ -535,11 +542,11 @@
         send:'auto', // strategy for sending data on server: 'always', 'never', 'auto' (default). 'auto' = 'ifpk' (deprecated)
         autotext:'auto', //can be auto|never|always. Useful for select element: if 'auto' -> element text will be automatically set by provided value and source (in case source is object so no extra request will be performed).
         enablefocus:false, //wether to return focus on link after popover is closed. It's more functional, but focused links may look not pretty
-        formTemplate:'<form class="form-inline" autocomplete="off">' + 
-                       '<div class="control-group">' + 
-                       '&nbsp;<button type="submit" class="btn btn-primary"><i class="icon-ok icon-white"></i></button>&nbsp;<button type="button" class="btn editable-cancel"><i class="icon-ban-circle"></i></button>' + 
-                       '<span class="help-block" style="clear: both"></span>' + 
-                       '</div>' + 
+        formTemplate:'<form class="form-inline" autocomplete="off">' +
+                       '<div class="control-group">' +
+                       '&nbsp;<button type="submit" class="btn btn-primary"><i class="icon-ok icon-white"></i></button>&nbsp;<button type="button" class="btn editable-cancel"><i class="icon-ban-circle"></i></button>' +
+                       '<span class="help-block" style="clear: both"></span>' +
+                       '</div>' +
                        '</form>',
         loading:'<div class="editable-loading"></div>',
 
@@ -788,14 +795,14 @@
             init:function (options) {
                 //set popular options directly from settings or data-* attributes
                 var directOptions = mergeKeys({}, this.settings, ['format', 'weekStart', 'startView']);
-                
+
                 //overriding datepicker config (as by default jQuery merge is not recursive)
                 this.settings.datepicker = $.extend({}, $.fn.editable.types.date.datepicker, directOptions, options.datepicker);
-                
+
                 //by default viewformat equals to format
                 if(!this.settings.viewformat) {
                     this.settings.viewformat = this.settings.datepicker.format;
-                }                
+                }
             },
             renderInput:function () {
                 this.$input = $(this.settings.template);
@@ -809,7 +816,7 @@
                 return dp.getFormattedDate();
             },
             setTextByValue:function () {
-                var text = this.settings.converFormat.call(this, this.value, this.settings.format, this.settings.viewformat);    
+                var text = this.settings.converFormat.call(this, this.value, this.settings.format, this.settings.viewformat);
                 this.$element.text(text);
             },
             setValueByText:function () {
@@ -817,28 +824,28 @@
                 if(!text.length) {
                     return;
                 }
-                this.value = this.settings.converFormat.call(this, text, this.settings.viewformat, this.settings.format);    
+                this.value = this.settings.converFormat.call(this, text, this.settings.viewformat, this.settings.format);
             },
             //helper function to convert date between two formats
             converFormat: function(dateStr, formatFrom, formatTo) {
                 if(formatFrom === formatTo) {
-                    return dateStr; 
+                    return dateStr;
                 }
-                var dpg = $.fn.datepicker.DPGlobal, 
+                var dpg = $.fn.datepicker.DPGlobal,
                     dateObj,
                     lang = (this.settings.datepicker && this.settings.datepicker.language) || 'en';
                 formatFrom = dpg.parseFormat(formatFrom);
                 formatTo = dpg.parseFormat(formatTo);
                 dateObj = dpg.parseDate($.trim(dateStr), formatFrom, lang);
                 return dpg.formatDate(dateObj, formatTo, lang);
-            }           
+            }
         }
     };
 
     /*
     * ========================== FUNCTIONS ========================
     */
-    
+
     /**
      * set caret position in input
      * see http://stackoverflow.com/questions/499126/jquery-set-cursor-position-in-text-area
